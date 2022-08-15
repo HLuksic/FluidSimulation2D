@@ -3,173 +3,162 @@
 #include <math.h>
 #include "olcPixelGameEngine.h"
 
-constexpr int Nx = 168;
-constexpr int Ny = 105;
+constexpr int N = 100;
 constexpr int iter = 4;
 
-template<typename T1, typename T2>
-constexpr auto IX(T1 x, T2  y) 
+constexpr auto Get2DCoordinate(int x, int y) 
 {
-    if (y > Nx - 1)
-        x = Nx - 1;
-    else if (x < 0)
-        x = 0;
-    if (y > Ny - 1)
-        y = Ny - 1;
-    else if (y < 0)
-        y = 0;
-    return x + (y * Nx); 
+    if (x < 0) { x = 0; }
+    if (x > N - 1) { x = N - 1; }
+
+    if (y < 0) { y = 0; }
+    if (y > N - 1) { y = N - 1; }
+
+    return (y * N) + x;
 }
 
 class FluidGrid 
 {
 public:
-    FluidGrid(float dt, float diffusion, float viscosity) 
+    FluidGrid(float dt, float d, float v) 
     {
-        dt = dt;
-        diff = diffusion;
-        visc = viscosity;
-
-        /*s = new float[Nx * Ny]{};
-        density = new float[Nx * Ny]{};
-
-        Vx = new float[Nx * Ny]{};
-        Vy = new float[Nx * Ny]{};
-
-        Vx0 = new float[Nx * Ny]{};
-        Vy0 = new float[Nx * Ny]{};*/
+        timeStep = dt;
+        diffusionAmt = d;
+        viscosity = v;
     }
 
 public:
-    float dt; //time step
-    float diff; //diffusion amount
-    float visc; //thickness of fluid
-         
-    float s[Nx * Ny] = {}; //previous density
-    float density[Nx * Ny] = {};
-         
-    float Vx[Nx * Ny] = {};
-    float Vy[Nx * Ny] = {};
-         
-    float Vx0[Nx * Ny] = {};
-    float Vy0[Nx * Ny] = {};
+    float density[N * N]    = {};
+    float dDensity[N * N]   = {}; //previous density
+    float velocityX[N * N]  = {};
+    float velocityY[N * N]  = {};
+    float velocityX0[N * N] = {};
+    float velocityY0[N * N] = {};
+    float timeStep; //time step
+    float diffusionAmt; //diffusion amount
+    float viscosity; //thickness of fluid
 
 public:
     void step() 
     {
-        diffuse(1, Vx0, Vx, visc, dt);
-        diffuse(2, Vy0, Vy, visc, dt);
+        Diffuse(1, velocityX0, velocityX, viscosity, timeStep);
+        Diffuse(2, velocityY0, velocityY, viscosity, timeStep);
 
-        project(Vx0, Vy0, Vx, Vy);
+        Project(velocityX0, velocityY0, velocityX, velocityY);
 
-        advect(1, Vx, Vy0, Vx0, Vy0, dt);
-        advect(2, Vy, Vy0, Vx0, Vy0, dt);
+        Advect(1, velocityX, velocityY0, velocityX0, velocityY0, timeStep);
+        Advect(2, velocityY, velocityY0, velocityX0, velocityY0, timeStep);
 
-        project(Vx, Vy, Vx0, Vy0);
+        Project(velocityX, velocityY, velocityX0, velocityY0);
 
-        diffuse(0, s, density, diff, dt);
-        advect(0, density, s, Vx, Vy, dt);
+        Diffuse(0, dDensity, density, diffusionAmt, timeStep);
+        Advect(0, density, dDensity, velocityX, velocityY, timeStep);
 
-        for (int i = 0; i < Nx * Ny; i++)
+        for (int i = 0; i < N * N; i++)
         {
             if (density[i] > 255.0f)
                 density[i] = 255.0f;
-            if (s[i] > 255.0f)
-                s[i] = 255.0f;
+            if (dDensity[i] > 255.0f)
+                dDensity[i] = 255.0f;
         }
     }
 
-    void addDensity(int x, int y, float amount) 
+    void AddDensity(int x, int y, float amount) 
     {
-        int index = IX(x, y);
+        int index = Get2DCoordinate(x, y);
         density[index] += amount;
     }
 
-    void addVelocity(int x, int y, float amountX, float amountY) 
+    void AddVelocity(int x, int y, float amountX, float amountY) 
     {
-        int index = IX(x, y);
-        Vx[index] += amountX;
-        Vy[index] += amountY;
+        int index = Get2DCoordinate(x, y);
+        velocityX[index] += amountX;
+        velocityY[index] += amountY;
     }
 
-    void diffuse(int b, float x[], float x0[], float diff, float dt) 
+    void Diffuse(int b, float x[], float x0[], float diffusionAmt, float timeStep) 
     {
-        float a = dt * diff * (Nx - 2) * (Ny - 2);
-        lin_solve(b, x, x0, a, 1 + 6 * a);
+        float a = timeStep * diffusionAmt * (N - 2) * (N - 2);
+        this->LinearSolve(b, x, x0, a, 1 + 6 * a);
     }
 
-    void lin_solve(int b, float x[], float x0[], float a, float c) {
+    void LinearSolve(int b, float x[], float x0[], float a, float c) 
+    {
         float cRecip = 1.0f / c;
-        for (int k = 0; k < iter; k++) {
-            for (int j = 1; j < Ny - 1; j++) {
-                for (int i = 1; i < Nx - 1; i++) {
-                    x[IX(i, j)] =
-                        (x0[IX(i, j)]
-                            + a *
-                            (x[IX(i + 1, j)]
-                                + x[IX(i - 1, j)]
-                                + x[IX(i, j + 1)]
-                                + x[IX(i, j - 1)]
-                                )) * cRecip;
-                }
-            }
+        
+        for (int k = 0; k < iter; k++) 
+        {
+            for (int j = 1; j < N - 1; j++) 
+                for (int i = 1; i < N - 1; i++) 
+                    x[Get2DCoordinate(i, j)] = (x0[Get2DCoordinate(i, j)] + a * (x[Get2DCoordinate(i + 1, j)]
+                                                                               + x[Get2DCoordinate(i - 1, j)]
+                                                                               + x[Get2DCoordinate(i, j + 1)]
+                                                                               + x[Get2DCoordinate(i, j - 1)]
+                                                                               + x[Get2DCoordinate(i, j)]
+                                                                               + x[Get2DCoordinate(i, j)])) * cRecip;
+            this->SetBoundary(b, x);
         }
-        set_bnd(b, x);
     }
 
-    void project(float velocX[], float velocY[], float p[], float div[]) 
+    void Project(float velocX[], float velocY[], float p[], float div[]) 
     {
-        for (int j = 1; j < Ny - 1; j++) {
-            for (int i = 1; i < Nx - 1; i++) {
-                div[IX(i, j)] = -0.5f * (
-                      velocX[IX(i + 1, j)]
-                    - velocX[IX(i - 1, j)]
-                    + velocY[IX(i, j + 1)]
-                    - velocY[IX(i, j - 1)]
-                    ) / ((Nx + Ny) * 0.5);
-                p[IX(i, j)] = 0;
-            }
-        }
-        set_bnd(0, div);
-        set_bnd(0, p);
-        lin_solve(0, p, div, 1.0f, 6.0f);
+        for (int j = 1; j < N - 1; j++)
+            for (int i = 1; i < N - 1; i++) 
+            {
+                div[Get2DCoordinate(i, j)] = -0.5f * 
+                     (velocX[Get2DCoordinate(i + 1, j)]
+                    - velocX[Get2DCoordinate(i - 1, j)]
+                    + velocY[Get2DCoordinate(i, j + 1)]
+                    - velocY[Get2DCoordinate(i, j - 1)]) / N;
 
-        for (int j = 1; j < Ny - 1; j++) {
-            for (int i = 1; i < Nx - 1; i++) {
-                velocX[IX(i, j)] -= 0.5f * (p[IX(i + 1, j)]
-                    - p[IX(i - 1, j)]) * Nx;
-                velocY[IX(i, j)] -= 0.5f * (p[IX(i, j + 1)]
-                    - p[IX(i, j - 1)]) * Ny;
+                p[Get2DCoordinate(i, j)] = 0;
             }
-        }
 
-        set_bnd(1, velocX);
-        set_bnd(2, velocY);
+        this->SetBoundary(0, div);
+        this->SetBoundary(0, p);
+        this->LinearSolve(0, p, div, 1, 6);
+
+        for (int j = 1; j < N - 1; j++)
+            for (int i = 1; i < N - 1; i++) 
+            {
+                velocX[Get2DCoordinate(i, j)] -= 0.5f * (p[Get2DCoordinate(i + 1, j)] - p[Get2DCoordinate(i - 1, j)]) * N;
+                velocY[Get2DCoordinate(i, j)] -= 0.5f * (p[Get2DCoordinate(i, j + 1)] - p[Get2DCoordinate(i, j - 1)]) * N;
+            }
+
+        this->SetBoundary(1, velocX);
+        this->SetBoundary(2, velocY);
     }
 
 
-    void advect(int b, float d[], float d0[], float velocX[], float velocY[], float dt)
+    void Advect(int b, float d[], float d0[], float velocX[], float velocY[], float timeStep)
     {
         float i0, i1, j0, j1;
+
+        float dtx = timeStep * (N - 2);
+        float dty = timeStep * (N - 2);
+
         float s0, s1, t0, t1;
-        float x, y;
+        float tmp1, tmp2, x, y;
 
-        float dtx = dt * (Nx - 2);
-        float dty = dt * (Ny - 2);
+        float Nfloat = N;
+        float ifloat, jfloat;
 
+        int i, j;
 
-        for (int j = 1; j < Ny - 1; j++) {
-            for (int i = 1; i < Nx - 1; i++) {
-                x = float(i) - dtx * velocX[IX(i, j)];
-                y = float(j) - dty * velocY[IX(i, j)];
+        for (j = 1, jfloat = 1; j < N - 1; j++, jfloat++) {
+            for (i = 1, ifloat = 1; i < N - 1; i++, ifloat++) {
+                tmp1 = dtx * velocX[Get2DCoordinate(i, j)];
+                tmp2 = dty * velocY[Get2DCoordinate(i, j)];
+                x = ifloat - tmp1;
+                y = jfloat - tmp2;
 
                 if (x < 0.5f) x = 0.5f;
-                if (x > float(Nx) + 0.5f) x = float(Nx) + 0.5f;
-                i0 = floor(x);
+                if (x > Nfloat + 0.5f) x = Nfloat + 0.5f;
+                i0 = ::floorf(x);
                 i1 = i0 + 1.0f;
                 if (y < 0.5f) y = 0.5f;
-                if (y > float(Ny) + 0.5f) y = float(Ny) + 0.5f;
-                j0 = floor(y);
+                if (y > Nfloat + 0.5f) y = Nfloat + 0.5f;
+                j0 = ::floorf(y);
                 j1 = j0 + 1.0f;
 
                 s1 = x - i0;
@@ -177,29 +166,53 @@ public:
                 t1 = y - j0;
                 t0 = 1.0f - t1;
 
-                d[IX(i, j)] =
-                    s0 * (t0 * d0[int(IX(i0, j0))] + t1 * d0[int(IX(i0, j1))]) +
-                    s1 * (t0 * d0[int(IX(i1, j0))] + t1 * d0[int(IX(i1, j1))]);
+                int i0i = i0;
+                int i1i = i1;
+                int j0i = j0;
+                int j1i = j1;
+
+                d[Get2DCoordinate(i, j)] =
+                    s0 * (t0 * d0[Get2DCoordinate(i0i, j0i)] + t1 * d0[Get2DCoordinate(i0i, j1i)]) +
+                    s1 * (t0 * d0[Get2DCoordinate(i1i, j0i)] + t1 * d0[Get2DCoordinate(i1i, j1i)]);
             }
         }
-        set_bnd(b, d);
+        SetBoundary(b, d);
     }
 
 
-    void set_bnd(int b, float x[]) 
+    void SetBoundary(int b, float x[]) 
     {
-        for (int i = 1; i < Ny - 1; i++) {
-            x[IX(0, i)] = b == 1 ? -x[IX(1, i)] : x[IX(1, i)];
-            x[IX(Nx - 1, i)] = b == 1 ? -x[IX(Nx - 1, i)] : x[IX(Nx - 1, i)];
+        for (int i = 1; i < N - 1; i++) 
+        {
+            x[Get2DCoordinate(i, 0)]     = b == 2 ? -x[Get2DCoordinate(i, 1)] : x[Get2DCoordinate(i, 1)];
+            x[Get2DCoordinate(i, N - 1)] = b == 2 ? -x[Get2DCoordinate(i, N - 2)] : x[Get2DCoordinate(i, N - 2)];
         }
-        for (int i = 1; i < Nx - 1; i++) {
-            x[IX(i, 0)] = b == 2 ? -x[IX(i, 1)] : x[IX(i, 1)];
-            x[IX(i, Ny - 1)] = b == 2 ? -x[IX(i, Ny - 1)] : x[IX(i, Ny - 1)];
+
+        for (int j = 1; j < N - 1; j++) 
+        {
+            x[Get2DCoordinate(0, j)]     = b == 1 ? -x[Get2DCoordinate(1, j)] : x[Get2DCoordinate(1, j)];
+            x[Get2DCoordinate(N - 1, j)] = b == 1 ? -x[Get2DCoordinate(N - 2, j)] : x[Get2DCoordinate(N - 2, j)];
         }
-        x[IX(0, 0)] = 0.5f * (x[IX(1, 0)] + x[IX(0, 1)]);
-        x[IX(0, Ny - 1)] = 0.5f * (x[IX(1, Ny - 1)] + x[IX(0, Ny - 1)]);
-        x[IX(Nx - 1, 0)] = 0.5f * (x[IX(Nx - 2, 0)] + x[IX(Nx - 1, 1)]);
-        x[IX(Nx - 1, Ny - 1)] = 0.5f * (x[IX(Nx - 2, Ny - 1)] + x[IX(Nx - 1, Ny - 2)]);
+
+        x[Get2DCoordinate(0, 0)] = 0.33f * 
+             (x[Get2DCoordinate(1, 0)]
+            + x[Get2DCoordinate(0, 1)]
+            + x[Get2DCoordinate(0, 0)]);
+
+        x[Get2DCoordinate(0, N - 1)] = 0.33f * 
+             (x[Get2DCoordinate(1, N - 1)]
+            + x[Get2DCoordinate(0, N - 2)]
+            + x[Get2DCoordinate(0, N - 1)]);
+
+        x[Get2DCoordinate(N - 1, 0)] = 0.33f * 
+             (x[Get2DCoordinate(N - 2, 0)]
+            + x[Get2DCoordinate(N - 1, 1)]
+            + x[Get2DCoordinate(N - 1, 0)]);
+
+        x[Get2DCoordinate(N - 1, N - 1)] = 0.33f * 
+             (x[Get2DCoordinate(N - 2, N - 1)]
+            + x[Get2DCoordinate(N - 1, N - 2)]
+            + x[Get2DCoordinate(N - 1, N - 1)]);
     }
 };
 
@@ -212,7 +225,7 @@ public:
 	}
 
 private:
-    FluidGrid* fluid;
+    FluidGrid* Fluid;
 
     float RandFloat(float a, float b)
     {
@@ -222,7 +235,7 @@ private:
 public:
 	bool OnUserCreate() override
 	{
-        fluid = new FluidGrid(0.5f, 0.0f, 0.00001f);
+        Fluid = new FluidGrid(0.2f, 0.0f, 0.0000001f);
 
 		return true;
 	}
@@ -233,17 +246,17 @@ public:
 
         SetPixelMode(olc::Pixel::ALPHA);
 
-        DrawStringDecal({ 10, 10 }, std::to_string(fluid->Vx[IX(GetMouseX(), GetMouseY())]) + ", " + std::to_string(fluid->Vy[IX(GetMouseX(), GetMouseY())]), olc::WHITE, { 0.5f,0.5f });
-        DrawStringDecal({ 10, 20 }, std::to_string(fluid->density[IX(GetMouseX(), GetMouseY())]), olc::WHITE, {0.5f,0.5f});
+        if (GetMouse(olc::Mouse::LEFT).bHeld)
+        {
+            Fluid->AddDensity(GetMouseX(), GetMouseY(), 200.0f);
+            Fluid->AddVelocity(GetMouseX(), GetMouseY(), 10.0f, 0.0f);
+        }
 
-        fluid->addDensity(GetMouseX(), GetMouseY(), 200.0f);
-        fluid->addVelocity(GetMouseX(), GetMouseY(), 100.0f, 100.0f);
-
-        fluid->step();
+        Fluid->step();
         
-        for (int i = 0; i < Nx; i++)
-            for (int j = 0; j < Ny; j++)
-                Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(fluid->density[IX(i, j)])/*255U * (fluid->density[IX(i, j)] / 255)*/));
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
+                Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(Fluid->density[Get2DCoordinate(i, j)])));
 		
         return true;
 	}
@@ -253,7 +266,7 @@ int main()
 {
 	FluidSimulation2D _FluidSimulation2D;
 	
-	if (_FluidSimulation2D.Construct(Nx, Ny, 5, 5, false, true))
+	if (_FluidSimulation2D.Construct(N, N, 5, 5, false, true))
 		_FluidSimulation2D.Start();
 
 	return 0;
