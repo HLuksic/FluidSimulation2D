@@ -4,7 +4,7 @@
 #include "olcPixelGameEngine.h"
 
 constexpr int N = 100;
-constexpr int iter = 4;
+constexpr int iter = 8;
 
 constexpr auto Get2DCoordinate(int x, int y) 
 {
@@ -29,38 +29,30 @@ public:
 
 public:
     float density[N * N]    = {};
-    float dDensity[N * N]   = {}; //previous density
+    float pDensity[N * N]   = {}; //previous density
     float velocityX[N * N]  = {};
     float velocityY[N * N]  = {};
-    float velocityX0[N * N] = {};
-    float velocityY0[N * N] = {};
-    float timeStep; //time step
-    float diffusionAmt; //diffusion amount
-    float viscosity; //thickness of fluid
+    float pVelocityX[N * N] = {}; // previous velocity
+    float pVelocityY[N * N] = {};
+    float timeStep;
+    float diffusionAmt;
+    float viscosity; //thickness
 
 public:
     void step() 
     {
-        Diffuse(1, velocityX0, velocityX, viscosity, timeStep);
-        Diffuse(2, velocityY0, velocityY, viscosity, timeStep);
+        Diffuse(1, pVelocityX, velocityX, viscosity, timeStep);
+        Diffuse(2, pVelocityY, velocityY, viscosity, timeStep);
 
-        Project(velocityX0, velocityY0, velocityX, velocityY);
+        Project(pVelocityX, pVelocityY, velocityX, velocityY);
 
-        Advect(1, velocityX, velocityY0, velocityX0, velocityY0, timeStep);
-        Advect(2, velocityY, velocityY0, velocityX0, velocityY0, timeStep);
+        Advect(1, velocityX, pVelocityX, pVelocityX, pVelocityY, timeStep);
+        Advect(2, velocityY, pVelocityY, pVelocityX, pVelocityY, timeStep);
 
-        Project(velocityX, velocityY, velocityX0, velocityY0);
+        Project(velocityX, velocityY, pVelocityX, pVelocityY);
 
-        Diffuse(0, dDensity, density, diffusionAmt, timeStep);
-        Advect(0, density, dDensity, velocityX, velocityY, timeStep);
-
-        for (int i = 0; i < N * N; i++)
-        {
-            if (density[i] > 255.0f)
-                density[i] = 255.0f;
-            if (dDensity[i] > 255.0f)
-                dDensity[i] = 255.0f;
-        }
+        Diffuse(0, pDensity, density, diffusionAmt, timeStep);
+        Advect(0, density, pDensity, velocityX, velocityY, timeStep);
     }
 
     void AddDensity(int x, int y, float amount) 
@@ -76,9 +68,9 @@ public:
         velocityY[index] += amountY;
     }
 
-    void Diffuse(int b, float x[], float x0[], float diffusionAmt, float timeStep) 
+    void Diffuse(int b, float x[], float x0[], float diffusion, float timeStep) 
     {
-        float a = timeStep * diffusionAmt * (N - 2) * (N - 2);
+        float a = timeStep * diffusion * (N - 2) * (N - 2);
         this->LinearSolve(b, x, x0, a, 1 + 6 * a);
     }
 
@@ -134,48 +126,49 @@ public:
     {
         float i0, i1, j0, j1;
 
-        float dtx = timeStep * (N - 2);
-        float dty = timeStep * (N - 2);
+        float timeStepX = timeStep * (N - 2);
+        float timeStepY = timeStep * (N - 2);
 
         float s0, s1, t0, t1;
         float tmp1, tmp2, x, y;
 
-        float Nfloat = N;
-        float ifloat, jfloat;
+        for (int j = 1; j < N - 1; j++) 
+            for (int i = 1; i < N - 1; i++) 
+            {
+                tmp1 = timeStepX * velocX[Get2DCoordinate(i, j)];
+                tmp2 = timeStepY * velocY[Get2DCoordinate(i, j)];
+                x = float(i) - tmp1;
+                y = float(j) - tmp2;
 
-        int i, j;
+                if (x < 0.5f) 
+                    x = 0.5f;
 
-        for (j = 1, jfloat = 1; j < N - 1; j++, jfloat++) {
-            for (i = 1, ifloat = 1; i < N - 1; i++, ifloat++) {
-                tmp1 = dtx * velocX[Get2DCoordinate(i, j)];
-                tmp2 = dty * velocY[Get2DCoordinate(i, j)];
-                x = ifloat - tmp1;
-                y = jfloat - tmp2;
+                if (x > float(N) + 0.5f)
+                    x = float(N) + 0.5f;
 
-                if (x < 0.5f) x = 0.5f;
-                if (x > Nfloat + 0.5f) x = Nfloat + 0.5f;
-                i0 = ::floorf(x);
+                i0 = floorf(x);
                 i1 = i0 + 1.0f;
-                if (y < 0.5f) y = 0.5f;
-                if (y > Nfloat + 0.5f) y = Nfloat + 0.5f;
-                j0 = ::floorf(y);
+
+                if (y < 0.5f) 
+                    y = 0.5f;
+
+                if (y > float(N) + 0.5f)
+                    y = float(N) + 0.5f;
+
+                j0 = floorf(y);
                 j1 = j0 + 1.0f;
 
                 s1 = x - i0;
                 s0 = 1.0f - s1;
+
                 t1 = y - j0;
                 t0 = 1.0f - t1;
 
-                int i0i = i0;
-                int i1i = i1;
-                int j0i = j0;
-                int j1i = j1;
-
                 d[Get2DCoordinate(i, j)] =
-                    s0 * (t0 * d0[Get2DCoordinate(i0i, j0i)] + t1 * d0[Get2DCoordinate(i0i, j1i)]) +
-                    s1 * (t0 * d0[Get2DCoordinate(i1i, j0i)] + t1 * d0[Get2DCoordinate(i1i, j1i)]);
+                    s0 * (t0 * d0[Get2DCoordinate(int(i0), int(j0))] + t1 * d0[Get2DCoordinate(int(i0), int(j1))]) +
+                    s1 * (t0 * d0[Get2DCoordinate(int(i1), int(j1))] + t1 * d0[Get2DCoordinate(int(i1), int(j1))]);
             }
-        }
+
         SetBoundary(b, d);
     }
 
@@ -235,7 +228,7 @@ private:
 public:
 	bool OnUserCreate() override
 	{
-        Fluid = new FluidGrid(0.2f, 0.0f, 0.0000001f);
+        Fluid = new FluidGrid(0.5f, 0.000001f, 0.0000001f);
 
 		return true;
 	}
@@ -249,7 +242,7 @@ public:
         if (GetMouse(olc::Mouse::LEFT).bHeld)
         {
             Fluid->AddDensity(GetMouseX(), GetMouseY(), 200.0f);
-            Fluid->AddVelocity(GetMouseX(), GetMouseY(), 10.0f, 0.0f);
+            Fluid->AddVelocity(GetMouseX(), GetMouseY(), -0.5f, 0.0f);
         }
 
         Fluid->step();
@@ -258,6 +251,8 @@ public:
             for (int j = 0; j < N; j++)
                 Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(Fluid->density[Get2DCoordinate(i, j)])));
 		
+        DrawRect({ 0,0 }, { ScreenWidth() - 1, ScreenHeight() - 1 }, olc::DARK_RED);
+
         return true;
 	}
 };
