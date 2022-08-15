@@ -1,4 +1,4 @@
-### This is a Navier-Stokes based 2D fluid simulation implemented in C++ using [olcPixelGameEngine](https://github.com/OneLoneCoder/olcPixelGameEngine).
+### This is a Navier-Stokes based 2D fluid simulation using [olcPixelGameEngine](https://github.com/OneLoneCoder/olcPixelGameEngine).
 
 ## Controls
 - Hold <kbd>LMB</kbd> to add fluid and velocity
