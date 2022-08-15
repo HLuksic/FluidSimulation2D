@@ -39,7 +39,7 @@ public:
     float viscosity; //thickness
 
 public:
-    void step() 
+    void Step(float fElapsedTime) 
     {
         Diffuse(1, pVelocityX, velocityX, viscosity, timeStep);
         Diffuse(2, pVelocityY, velocityY, viscosity, timeStep);
@@ -53,6 +53,15 @@ public:
 
         Diffuse(0, pDensity, density, diffusionAmt, timeStep);
         Advect(0, density, pDensity, velocityX, velocityY, timeStep);
+
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
+            {
+                if (density[Get2DCoordinate(i, j)] > 0.0f)
+                    density[Get2DCoordinate(i, j)] -= 3.0f * fElapsedTime;
+                if (density[Get2DCoordinate(i, j)] > 254.9f)
+                    density[Get2DCoordinate(i, j)] == 254.9f;
+            }
     }
 
     void AddDensity(int x, int y, float amount) 
@@ -175,26 +184,22 @@ public:
 
     void SetBoundary(int b, float x[]) 
     {
-        for (int i = 1; i < N - 1; i++) 
+        /*for (int i = 1; i < N - 1; i++) 
         {
-            x[Get2DCoordinate(i, 0)]     = b == 2 ? -x[Get2DCoordinate(i, 1)] : x[Get2DCoordinate(i, 1)];
+            x[Get2DCoordinate(i, 0)]     = b == 2 ? -x[Get2DCoordinate(i, 1)]     : x[Get2DCoordinate(i, 1)];
             x[Get2DCoordinate(i, N - 1)] = b == 2 ? -x[Get2DCoordinate(i, N - 2)] : x[Get2DCoordinate(i, N - 2)];
+            x[Get2DCoordinate(0, i)]     = b == 1 ? -x[Get2DCoordinate(1, i)]     : x[Get2DCoordinate(1, i)];
+            x[Get2DCoordinate(N - 1, i)] = b == 1 ? -x[Get2DCoordinate(N - 2, i)] : x[Get2DCoordinate(N - 2, i)];
         }
 
-        for (int j = 1; j < N - 1; j++) 
-        {
-            x[Get2DCoordinate(0, j)]     = b == 1 ? -x[Get2DCoordinate(1, j)] : x[Get2DCoordinate(1, j)];
-            x[Get2DCoordinate(N - 1, j)] = b == 1 ? -x[Get2DCoordinate(N - 2, j)] : x[Get2DCoordinate(N - 2, j)];
-        }
-
-        x[Get2DCoordinate(0, 0)] = 0.33f * 
-             (x[Get2DCoordinate(1, 0)]
-            + x[Get2DCoordinate(0, 1)]
-            + x[Get2DCoordinate(0, 0)]);
+        x[Get2DCoordinate(0, 0)] = 0.33f *
+            (x[Get2DCoordinate(1, 0)]
+           + x[Get2DCoordinate(0, 1)]
+           + x[Get2DCoordinate(0, 0)]);
 
         x[Get2DCoordinate(0, N - 1)] = 0.33f * 
-             (x[Get2DCoordinate(1, N - 1)]
-            + x[Get2DCoordinate(0, N - 2)]
+             (x[Get2DCoordinate(0, N - 2)]
+            + x[Get2DCoordinate(1, N - 1)]
             + x[Get2DCoordinate(0, N - 1)]);
 
         x[Get2DCoordinate(N - 1, 0)] = 0.33f * 
@@ -203,9 +208,22 @@ public:
             + x[Get2DCoordinate(N - 1, 0)]);
 
         x[Get2DCoordinate(N - 1, N - 1)] = 0.33f * 
-             (x[Get2DCoordinate(N - 2, N - 1)]
-            + x[Get2DCoordinate(N - 1, N - 2)]
-            + x[Get2DCoordinate(N - 1, N - 1)]);
+             (x[Get2DCoordinate(N - 1, N - 2)]
+            + x[Get2DCoordinate(N - 2, N - 1)]
+            + x[Get2DCoordinate(N - 1, N - 1)]);*/
+
+        for (int i = 1; i <= N; i++)
+        {
+            x[Get2DCoordinate(0, i)]     = b == 1 ? -x[Get2DCoordinate(1, i)] : x[Get2DCoordinate(1, i)];
+            x[Get2DCoordinate(N + 1, i)] = b == 1 ? -x[Get2DCoordinate(N, i)] : x[Get2DCoordinate(N, i)];
+            x[Get2DCoordinate(i, 0)]     = b == 2 ? -x[Get2DCoordinate(i, 1)] : x[Get2DCoordinate(i, 1)];
+            x[Get2DCoordinate(i, N + 1)] = b == 2 ? -x[Get2DCoordinate(i, N)] : x[Get2DCoordinate(i, N)];
+        }
+
+        x[Get2DCoordinate(0, 0)]         = 0.5f * (x[Get2DCoordinate(1, 0)]     + x[Get2DCoordinate(0, 1)]);
+        x[Get2DCoordinate(0, N + 1)]     = 0.5f * (x[Get2DCoordinate(1, N + 1)] + x[Get2DCoordinate(0, N)]);
+        x[Get2DCoordinate(N + 1, 0)]     = 0.5f * (x[Get2DCoordinate(N, 0)]     + x[Get2DCoordinate(N + 1, 1)]);
+        x[Get2DCoordinate(N + 1, N + 1)] = 0.5f * (x[Get2DCoordinate(N, N + 1)] + x[Get2DCoordinate(N + 1, N)]);
     }
 };
 
@@ -219,39 +237,60 @@ public:
 
 private:
     FluidGrid* Fluid;
+    olc::vi2d mousePos;
+    olc::vi2d pMousePos;
 
     float RandFloat(float a, float b)
     {
         return ((b - a) * ((float)rand() / RAND_MAX)) + a;
     }
 
+    void Render()
+    {
+        Clear(olc::BLACK);
+
+        for (int i = 0; i < N; i++)
+            for (int j = 0; j < N; j++)
+                Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(Fluid->density[Get2DCoordinate(i, j)])));
+
+        DrawRect({ 0,0 }, { ScreenWidth() - 1, ScreenHeight() - 1 }, olc::VERY_DARK_BLUE);
+    }
+
 public:
 	bool OnUserCreate() override
 	{
-        Fluid = new FluidGrid(0.5f, 0.000001f, 0.0000001f);
+        Fluid = new FluidGrid(0.5f, 0.00001f, 0.00001f);
+        mousePos = GetMousePos();
+        pMousePos = GetMousePos();
+        SetPixelMode(olc::Pixel::ALPHA);
 
 		return true;
 	}
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
-        Clear(olc::BLACK);
-
-        SetPixelMode(olc::Pixel::ALPHA);
+        mousePos = GetMousePos();
 
         if (GetMouse(olc::Mouse::LEFT).bHeld)
         {
-            Fluid->AddDensity(GetMouseX(), GetMouseY(), 200.0f);
-            Fluid->AddVelocity(GetMouseX(), GetMouseY(), -0.5f, 0.0f);
+            Fluid->AddDensity(GetMouseX(), GetMouseY(), 250.0f);
+            Fluid->AddVelocity(GetMouseX(), GetMouseY(), 0.3f, 0.0f/*(mousePos.x - pMousePos.x) / 3.0f, (mousePos.y - pMousePos.y) / 3.0f*/);
         }
 
-        Fluid->step();
-        
-        for (int i = 0; i < N; i++)
-            for (int j = 0; j < N; j++)
-                Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(Fluid->density[Get2DCoordinate(i, j)])));
-		
-        DrawRect({ 0,0 }, { ScreenWidth() - 1, ScreenHeight() - 1 }, olc::DARK_RED);
+        pMousePos = mousePos;
+
+        if (GetKey(olc::Key::R).bPressed)
+        {
+            memset(Fluid->density,    0, sizeof(Fluid->density));
+            memset(Fluid->pDensity,   0, sizeof(Fluid->pDensity));
+            memset(Fluid->velocityX,  0, sizeof(Fluid->velocityX));
+            memset(Fluid->velocityY,  0, sizeof(Fluid->velocityY));
+            memset(Fluid->pVelocityX, 0, sizeof(Fluid->pVelocityX));
+            memset(Fluid->pVelocityY, 0, sizeof(Fluid->pVelocityY));
+        }
+
+        Fluid->Step(fElapsedTime);
+        Render();
 
         return true;
 	}
