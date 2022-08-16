@@ -12,27 +12,20 @@ Fluid::Fluid(float dt, float d, float v)
 
 void Fluid::Step()
 {
-    Diffuse(1, pVelocityX, velocityX, viscosity, timeStep);
-    Diffuse(2, pVelocityY, velocityY, viscosity, timeStep);
+    this->Diffuse(1, pVelocityX, velocityX, viscosity, timeStep);
+    this->Diffuse(2, pVelocityY, velocityY, viscosity, timeStep);
 
-    Project(pVelocityX, pVelocityY, velocityX, velocityY);
+    this->Project(pVelocityX, pVelocityY, velocityX, velocityY);
 
-    Advect(1, velocityX, pVelocityX, pVelocityX, pVelocityY, timeStep);
-    Advect(2, velocityY, pVelocityY, pVelocityX, pVelocityY, timeStep);
+    this->Advect(1, velocityX, pVelocityX, pVelocityX, pVelocityY, timeStep);
+    this->Advect(2, velocityY, pVelocityY, pVelocityX, pVelocityY, timeStep);
 
-    Project(velocityX, velocityY, pVelocityX, pVelocityY);
+    this->Project(velocityX, velocityY, pVelocityX, pVelocityY);
 
-    Diffuse(0, pDensity, density, diffusionAmt, timeStep);
-    Advect(0, density, pDensity, velocityX, velocityY, timeStep);
+    this->Diffuse(0, pDensity, density, diffusionAmt, timeStep);
+    this->Advect(0, density, pDensity, velocityX, velocityY, timeStep);
 
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
-        {
-            if (density[Get2DCoordinate(i, j)] > 0.0f)
-                density[Get2DCoordinate(i, j)] -= 0.017f;
-            if (density[Get2DCoordinate(i, j)] > 254.9f)
-                density[Get2DCoordinate(i, j)] == 254.9f;
-        }
+    this->Fade();
 }
 
 void Fluid::Reset()
@@ -56,6 +49,18 @@ void Fluid::AddVelocity(int x, int y, float amountX, float amountY)
     int index = Get2DCoordinate(x, y);
     velocityX[index] += amountX;
     velocityY[index] += amountY;
+}
+
+void Fluid::Fade()
+{
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < N; j++)
+        {
+            if (density[Get2DCoordinate(i, j)] > 0.0f)
+                density[Get2DCoordinate(i, j)] -= 0.017f;
+            if (density[Get2DCoordinate(i, j)] > 254.9f)
+                density[Get2DCoordinate(i, j)] == 254.9f;
+        }
 }
 
 void Fluid::Diffuse(int b, float x[], float x0[], float factor, float timeStep)

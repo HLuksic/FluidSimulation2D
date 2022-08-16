@@ -22,6 +22,7 @@ private:
 public:
     void Step();
     void Reset();
+    void Fade();
     void AddDensity(int x, int y, float amount);
     void AddVelocity(int x, int y, float amountX, float amountY);
     void Diffuse(int b, float x[], float x0[], float factor, float timeStep);
