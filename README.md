@@ -7,6 +7,6 @@
 
 ## Most of the code and necessary knowledge
 
-- Mike Ash's Fluid simulation for dummies (3D, C) - https://www.mikeash.com/pyblog/fluid-simulation-for-dummies.html 
+- Mike Ash's Fluid simulation for dummies - https://www.mikeash.com/pyblog/fluid-simulation-for-dummies.html 
 - Caltech's Java implementation - http://www.multires.caltech.edu/teaching/demos/java/FluidSolver.java
 - The Coding Train's p5.js implementation - https://www.youtube.com/watch?v=alhpH6ECFvQ&t=2941s
