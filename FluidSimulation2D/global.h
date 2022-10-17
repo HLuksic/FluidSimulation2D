@@ -1,7 +1,7 @@
 #pragma once
 
-extern constexpr int N = 100;
-extern constexpr int iter = 8;
+extern inline constexpr int N = 100;
+extern inline constexpr int iter = 8;
 
 constexpr int Get2DCoordinate(int x, int y)
 {
