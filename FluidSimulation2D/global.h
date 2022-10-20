@@ -1,14 +1,14 @@
 #pragma once
 
-extern inline constexpr int N = 100;
-extern inline constexpr int iter = 8;
+extern inline constexpr int gridSize = 100;
+extern inline constexpr int iter = 4;
 
 constexpr int Get2DCoordinate(int x, int y)
 {
     if (x < 0) x = 0;
     if (y < 0) y = 0;
-    if (x > N - 1) x = N - 1;
-    if (y > N - 1) y = N - 1;
+    if (x > gridSize - 1) x = gridSize - 1;
+    if (y > gridSize - 1) y = gridSize - 1;
 
-    return (y * N) + x;
+    return (y * gridSize) + x;
 }

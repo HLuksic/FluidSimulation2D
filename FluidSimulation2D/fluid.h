@@ -8,13 +8,13 @@ public:
     Fluid(float dt, float d, float v);
 
 public:
-    float density[N * N];
+    float density[gridSize * gridSize];
 private:
-    float pDensity[N * N]; //previous density
-    float velocityX[N * N];
-    float velocityY[N * N];
-    float pVelocityX[N * N]; // previous velocity
-    float pVelocityY[N * N];
+    float pDensity[gridSize * gridSize]; //previous density
+    float velocityX[gridSize * gridSize];
+    float velocityY[gridSize * gridSize];
+    float pVelocityX[gridSize * gridSize]; // previous velocity
+    float pVelocityY[gridSize * gridSize];
     float timeStep;
     float diffusionAmt;
     float viscosity; //thickness

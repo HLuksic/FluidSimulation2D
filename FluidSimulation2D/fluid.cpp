@@ -53,8 +53,8 @@ void Fluid::AddVelocity(int x, int y, float amountX, float amountY)
 
 void Fluid::Fade()
 {
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < N; j++)
+    for (int i = 0; i < gridSize; i++)
+        for (int j = 0; j < gridSize; j++)
         {
             if (density[Get2DCoordinate(i, j)] > 0.0f)
                 density[Get2DCoordinate(i, j)] -= 0.017f;
@@ -65,7 +65,7 @@ void Fluid::Fade()
 
 void Fluid::Diffuse(int b, float x[], float x0[], float factor, float timeStep)
 {
-    float a = timeStep * factor * (N - 2) * (N - 2);
+    float a = timeStep * factor * (gridSize - 2) * (gridSize - 2);
     this->LinearSolve(b, x, x0, a, 1 + 6 * a);
 }
 
@@ -75,8 +75,8 @@ void Fluid::LinearSolve(int b, float x[], float x0[], float a, float c)
 
     for (int k = 0; k < iter; k++)
     {
-        for (int j = 1; j < N - 1; j++)
-            for (int i = 1; i < N - 1; i++)
+        for (int j = 1; j < gridSize - 1; j++)
+            for (int i = 1; i < gridSize - 1; i++)
                 x[Get2DCoordinate(i, j)] = (x0[Get2DCoordinate(i, j)] + a * (x[Get2DCoordinate(i + 1, j)]
                                                                            + x[Get2DCoordinate(i - 1, j)]
                                                                            + x[Get2DCoordinate(i, j + 1)]
@@ -89,13 +89,13 @@ void Fluid::LinearSolve(int b, float x[], float x0[], float a, float c)
 
 void Fluid::Project(float velocX[], float velocY[], float velocX0[], float velocY0[])
 {
-    for (int j = 1; j < N - 1; j++)
-        for (int i = 1; i < N - 1; i++)
+    for (int j = 1; j < gridSize - 1; j++)
+        for (int i = 1; i < gridSize - 1; i++)
         {
             velocY0[Get2DCoordinate(i, j)] = -0.5f * (velocX[Get2DCoordinate(i + 1, j)]
                                                     - velocX[Get2DCoordinate(i - 1, j)]
                                                     + velocY[Get2DCoordinate(i, j + 1)]
-                                                    - velocY[Get2DCoordinate(i, j - 1)]) / N;
+                                                    - velocY[Get2DCoordinate(i, j - 1)]) / gridSize;
             velocX0[Get2DCoordinate(i, j)] = 0;
         }
 
@@ -103,11 +103,11 @@ void Fluid::Project(float velocX[], float velocY[], float velocX0[], float veloc
     this->SetBoundary(0, velocX0);
     this->LinearSolve(0, velocX0, velocY0, 1, 6);
 
-    for (int j = 1; j < N - 1; j++)
-        for (int i = 1; i < N - 1; i++)
+    for (int j = 1; j < gridSize - 1; j++)
+        for (int i = 1; i < gridSize - 1; i++)
         {
-            velocX[Get2DCoordinate(i, j)] -= 0.5f * (velocX0[Get2DCoordinate(i + 1, j)] - velocX0[Get2DCoordinate(i - 1, j)]) * N;
-            velocY[Get2DCoordinate(i, j)] -= 0.5f * (velocX0[Get2DCoordinate(i, j + 1)] - velocX0[Get2DCoordinate(i, j - 1)]) * N;
+            velocX[Get2DCoordinate(i, j)] -= 0.5f * (velocX0[Get2DCoordinate(i + 1, j)] - velocX0[Get2DCoordinate(i - 1, j)]) * gridSize;
+            velocY[Get2DCoordinate(i, j)] -= 0.5f * (velocX0[Get2DCoordinate(i, j + 1)] - velocX0[Get2DCoordinate(i, j - 1)]) * gridSize;
         }
 
     this->SetBoundary(1, velocX);
@@ -119,18 +119,18 @@ void Fluid::Advect(int b, float d[], float d0[], float velocX[], float velocY[],
     int i0, i1, j0, j1;
     float s0, s1, t0, t1, x, y, timeStep0;
 
-    timeStep0 = timeStep * (N - 2);
+    timeStep0 = timeStep * (gridSize - 2);
 
-    for (int j = 1; j < N - 1; j++)
-        for (int i = 1; i < N - 1; i++)
+    for (int j = 1; j < gridSize - 1; j++)
+        for (int i = 1; i < gridSize - 1; i++)
         {
             x = float(i) - timeStep0 * velocX[Get2DCoordinate(i, j)];
             y = float(j) - timeStep0 * velocY[Get2DCoordinate(i, j)];
 
             if (x < 0.5f) x = 0.5f;
             if (y < 0.5f) y = 0.5f;
-            if (x > float(N) + 0.5f) x = float(N) + 0.5f;
-            if (y > float(N) + 0.5f) y = float(N) + 0.5f;
+            if (x > float(gridSize) + 0.5f) x = float(gridSize) + 0.5f;
+            if (y > float(gridSize) + 0.5f) y = float(gridSize) + 0.5f;
 
             i0 = int(x);
             i1 = i0 + 1;
@@ -154,16 +154,16 @@ void Fluid::Advect(int b, float d[], float d0[], float velocX[], float velocY[],
 
 void Fluid::SetBoundary(int b, float x[])
 {
-    for (int i = 1; i < N - 1; i++)
+    for (int i = 1; i < gridSize - 1; i++)
     {
         x[Get2DCoordinate(i, 0)]     = b == 2 ? -x[Get2DCoordinate(i, 1)]     : x[Get2DCoordinate(i, 1)];
-        x[Get2DCoordinate(i, N - 1)] = b == 2 ? -x[Get2DCoordinate(i, N - 2)] : x[Get2DCoordinate(i, N - 2)];
+        x[Get2DCoordinate(i, gridSize - 1)] = b == 2 ? -x[Get2DCoordinate(i, gridSize - 2)] : x[Get2DCoordinate(i, gridSize - 2)];
         x[Get2DCoordinate(0, i)]     = b == 1 ? -x[Get2DCoordinate(1, i)]     : x[Get2DCoordinate(1, i)];
-        x[Get2DCoordinate(N - 1, i)] = b == 1 ? -x[Get2DCoordinate(N - 2, i)] : x[Get2DCoordinate(N - 2, i)];
+        x[Get2DCoordinate(gridSize - 1, i)] = b == 1 ? -x[Get2DCoordinate(gridSize - 2, i)] : x[Get2DCoordinate(gridSize - 2, i)];
     }
 
     x[Get2DCoordinate(0, 0)]         = 0.33f * (x[Get2DCoordinate(1, 0)]         + x[Get2DCoordinate(0, 1)]         + x[Get2DCoordinate(0, 0)]);
-    x[Get2DCoordinate(0, N - 1)]     = 0.33f * (x[Get2DCoordinate(0, N - 2)]     + x[Get2DCoordinate(1, N - 1)]     + x[Get2DCoordinate(0, N - 1)]);
-    x[Get2DCoordinate(N - 1, 0)]     = 0.33f * (x[Get2DCoordinate(N - 2, 0)]     + x[Get2DCoordinate(N - 1, 1)]     + x[Get2DCoordinate(N - 1, 0)]);
-    x[Get2DCoordinate(N - 1, N - 1)] = 0.33f * (x[Get2DCoordinate(N - 1, N - 2)] + x[Get2DCoordinate(N - 2, N - 1)] + x[Get2DCoordinate(N - 1, N - 1)]);
+    x[Get2DCoordinate(0, gridSize - 1)]     = 0.33f * (x[Get2DCoordinate(0, gridSize - 2)]     + x[Get2DCoordinate(1, gridSize - 1)]     + x[Get2DCoordinate(0, gridSize - 1)]);
+    x[Get2DCoordinate(gridSize - 1, 0)]     = 0.33f * (x[Get2DCoordinate(gridSize - 2, 0)]     + x[Get2DCoordinate(gridSize - 1, 1)]     + x[Get2DCoordinate(gridSize - 1, 0)]);
+    x[Get2DCoordinate(gridSize - 1, gridSize - 1)] = 0.33f * (x[Get2DCoordinate(gridSize - 1, gridSize - 2)] + x[Get2DCoordinate(gridSize - 2, gridSize - 1)] + x[Get2DCoordinate(gridSize - 1, gridSize - 1)]);
 }

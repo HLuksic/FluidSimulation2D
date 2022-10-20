@@ -26,11 +26,11 @@ private:
     {
         Clear(olc::BLACK);
 
-        for (int i = 0; i < N; i++)
-            for (int j = 0; j < N; j++)
-                Draw({ i , j }, olc::Pixel(255, 255, 255, uint8_t(_Fluid->density[Get2DCoordinate(i, j)])));
+        for (int i = 0; i < gridSize; i++)
+            for (int j = 0; j < gridSize; j++)
+                FillRect({ i * 2, j * 2 }, { 2, 2 }, olc::Pixel(255, 255, 255, uint8_t(_Fluid->density[Get2DCoordinate(i, j)])));
 
-        DrawRect({ 0,0 }, { ScreenWidth() - 1, ScreenHeight() - 1 }, olc::VERY_DARK_BLUE);
+        DrawRect({ 0, 0 }, { ScreenWidth() - 1, ScreenHeight() - 51 }, olc::VERY_DARK_BLUE);
     }
 
     void Input()
@@ -39,8 +39,8 @@ private:
 
         if (GetMouse(olc::Mouse::LEFT).bHeld)
         {
-            _Fluid->AddDensity(GetMouseX(), GetMouseY(), 250.0f);
-            _Fluid->AddVelocity(GetMouseX(), GetMouseY(), (mousePos.x - pMousePos.x) / 4.0f, (mousePos.y - pMousePos.y) / 4.0f);
+            _Fluid->AddDensity(GetMouseX() / 2, GetMouseY() / 2, 200.0f);
+            _Fluid->AddVelocity(GetMouseX() / 2, GetMouseY() / 2, (mousePos.x - pMousePos.x) / 4.0f, (mousePos.y - pMousePos.y) / 4.0f);
         }
 
         pMousePos = mousePos;
@@ -76,7 +76,7 @@ int main()
 {
 	FluidSimulation2D _FluidSimulation2D;
 	
-	if (_FluidSimulation2D.Construct(N, N, 5, 5, false, true))
+	if (_FluidSimulation2D.Construct(gridSize * 2, gridSize * 2 + 50, 2, 2))
 		_FluidSimulation2D.Start();
 
 	return 0;
